@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Draggable Chess Board with Captures, Takebacks, and Options</title>
+  <style>
+    /* Board container */
+    #board {
+      width: 480px;
+      height: 480px;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      border: 2px solid #333;
+      margin: 20px auto;
+      transition: transform 0.3s;
+    }
+    /* Flipped board styles */
+    #board.flipped {
+      transform: rotate(180deg);
+    }
+    /* Individual square styling */
+    .square {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    /* Light and dark square colors */
+    .light {
+      background-color: #f0d9b5;
+    }
+    .dark {
+      background-color: #b58863;
+    }
+    /* Piece styling */
+    .piece {
+      width: 50px;
+      height: 50px;
+      cursor: grab;
+      transition: transform 0.3s;
+    }
+    /* When board is flipped, rotate pieces back */
+    #board.flipped .piece {
+      transform: rotate(180deg);
+    }
+    /* Controls styling */
+    #controls {
+      text-align: center;
+      margin-top: 10px;
+    }
+    #controls label {
+      margin: 0 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2 style="text-align:center;">Draggable Chess Board with Captures, Takebacks, and Options</h2>
+  <div id="board"></div>
+  <div id="controls">
+    <button id="takeBackButton">Take Back</button>
+    <br><br>
+    <label>
+      <input type="checkbox" id="pieceSetToggle"> Use Red/Blue Pieces (Blue goes first)
+    </label>
+    <label>
+      <input type="checkbox" id="flipBoardToggle"> Flip Board Orientation
+    </label>
+  </div>
+
+  <script>
+    const boardElement = document.getElementById('board');
+    const takeBackButton = document.getElementById('takeBackButton');
+    const pieceSetToggle = document.getElementById('pieceSetToggle');
+    const flipBoardToggle = document.getElementById('flipBoardToggle');
+
+    let moveHistory = [];
+
+    // The initial chess setup (using Unicode symbols as reference)
+    const initialSetup = [
+      ["♜","♞","♝","♛","♚","♝","♞","♜"],
+      ["♟","♟","♟","♟","♟","♟","♟","♟"],
+      ["","","","","","","",""],
+      ["","","","","","","",""],
+      ["","","","","","","",""],
+      ["","","","","","","",""],
+      ["♙","♙","♙","♙","♙","♙","♙","♙"],
+      ["♖","♘","♗","♕","♔","♗","♘","♖"]
+    ];
+
+    // Mapping for default (light/dark) pieces
+    const defaultPieceImages = {
+      "♙": "Chess_plt45.svg",
+      "♖": "Chess_rlt45.svg",
+      "♘": "Chess_nlt45.svg",
+      "♗": "Chess_blt45.svg",
+      "♕": "Chess_qlt45.svg",
+      "♔": "Chess_klt45.svg",
+      "♟": "Chess_pdt45.svg",
+      "♜": "Chess_rdt45.svg",
+      "♞": "Chess_ndt45.svg",
+      "♝": "Chess_bdt45.svg",
+      "♛": "Chess_qdt45.svg",
+      "♚": "Chess_kdt45.svg"
+    };
+
+    // Mapping for red/blue pieces (blue = first, red = second)
+    const redBluePieceImages = {
+      // Blue pieces (first color, like white)
+      "♙": "Chess_pbt45.svg",
+      "♖": "Chess_rbt45.svg",
+      "♘": "Chess_nbt45.svg",
+      "♗": "Chess_bbt45.svg",
+      "♕": "Chess_qbt45.svg",
+      "♔": "Chess_kbt45.svg",
+      // Red pieces (second color, like black)
+      "♟": "Chess_prt45.svg",
+      "♜": "Chess_rrt45.svg",
+      "♞": "Chess_nrt45.svg",
+      "♝": "Chess_brt45.svg",
+      "♛": "Chess_qrt45.svg",
+      "♚": "Chess_krt45.svg"
+    };
+
+    // Return the correct mapping based on toggle
+    function getPieceMapping() {
+      return pieceSetToggle.checked ? redBluePieceImages : defaultPieceImages;
+    }
+
+    // Initialize (or reinitialize) the board.
+    function resetBoard() {
+      // Clear move history
+      moveHistory = [];
+      // Remove all board squares
+      boardElement.innerHTML = '';
+      // Create 8x8 board squares
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const square = document.createElement('div');
+          square.classList.add('square');
+          square.classList.add((row + col) % 2 === 0 ? 'light' : 'dark');
+          square.dataset.row = row;
+          square.dataset.col = col;
+
+          // Enable drop functionality
+          square.addEventListener('dragover', (e) => {
+            e.preventDefault();
+          });
+          square.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const pieceId = e.dataTransfer.getData('text/plain');
+            const pieceElem = document.getElementById(pieceId);
+            const sourceSquare = pieceElem.parentElement;
+            const targetSquare = square;
+            if (sourceSquare === targetSquare) return;
+            let capturedPiece = null;
+            const existingPiece = targetSquare.querySelector('.piece');
+            if (existingPiece) {
+              capturedPiece = existingPiece;
+              targetSquare.removeChild(existingPiece);
+            }
+            targetSquare.appendChild(pieceElem);
+            moveHistory.push({
+              piece: pieceElem,
+              from: sourceSquare,
+              to: targetSquare,
+              captured: capturedPiece
+            });
+          });
+
+          boardElement.appendChild(square);
+        }
+      }
+      // Place pieces using current mapping
+      const pieceMapping = getPieceMapping();
+      // Loop over each square to add the initial pieces.
+      const squares = boardElement.querySelectorAll('.square');
+      squares.forEach(square => {
+        const row = square.dataset.row;
+        const col = square.dataset.col;
+        const pieceChar = initialSetup[row][col];
+        if (pieceChar) {
+          const piece = document.createElement('img');
+          piece.classList.add('piece');
+          piece.src = "images/" + pieceMapping[pieceChar];
+          piece.alt = pieceChar;
+          piece.id = 'piece-' + row + '-' + col;
+          piece.setAttribute('draggable', true);
+          piece.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', piece.id);
+          });
+          square.appendChild(piece);
+        }
+      });
+    }
+
+    // Update board flip based on toggle.
+    function updateBoardFlip() {
+      if (flipBoardToggle.checked) {
+        boardElement.classList.add('flipped');
+      } else {
+        boardElement.classList.remove('flipped');
+      }
+    }
+
+    // Set up event listeners for toggles.
+    pieceSetToggle.addEventListener('change', resetBoard);
+    flipBoardToggle.addEventListener('change', updateBoardFlip);
+
+    // Take Back button functionality.
+    takeBackButton.addEventListener('click', () => {
+      if (moveHistory.length === 0) return;
+      const lastMove = moveHistory.pop();
+      lastMove.from.appendChild(lastMove.piece);
+      if (lastMove.captured) {
+        lastMove.to.appendChild(lastMove.captured);
+      }
+    });
+
+    // Initialize board on page load.
+    resetBoard();
+  </script>
+</body>
+</html>
