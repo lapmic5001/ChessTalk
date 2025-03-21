@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Draggable Chess Board with Captures, Takebacks, and Options</title>
+  <title>Draggable Chess Board with 6 Colored Piece Sets</title>
   <style>
     /* Board container */
     #board {
@@ -13,6 +13,7 @@
       border: 2px solid #333;
       margin: 20px auto;
       transition: transform 0.3s;
+      position: relative;
     }
     /* Flipped board styles */
     #board.flipped {
@@ -56,14 +57,29 @@
   </style>
 </head>
 <body>
-  <h2 style="text-align:center;">Draggable Chess Board with Captures, Takebacks, and Options</h2>
+  <h2 style="text-align:center;">Draggable Chess Board with 6 Colored Piece Sets</h2>
   <div id="board"></div>
   <div id="controls">
     <button id="takeBackButton">Take Back</button>
     <br><br>
+    <!-- Dropdowns for choosing the piece colors -->
     <label>
-      <input type="checkbox" id="pieceSetToggle"> Use Red/Blue Pieces (Blue goes first)
+      Bottom Pieces (White Side):
+      <select id="bottomColorSelect">
+        <option value="white" selected>White</option>
+        <option value="blue">Blue</option>
+        <option value="yellow">Yellow</option>
+      </select>
     </label>
+    <label>
+      Top Pieces (Black Side):
+      <select id="topColorSelect">
+        <option value="black" selected>Black</option>
+        <option value="red">Red</option>
+        <option value="green">Green</option>
+      </select>
+    </label>
+    <br><br>
     <label>
       <input type="checkbox" id="flipBoardToggle"> Flip Board Orientation
     </label>
@@ -72,69 +88,94 @@
   <script>
     const boardElement = document.getElementById('board');
     const takeBackButton = document.getElementById('takeBackButton');
-    const pieceSetToggle = document.getElementById('pieceSetToggle');
     const flipBoardToggle = document.getElementById('flipBoardToggle');
+    const bottomColorSelect = document.getElementById('bottomColorSelect');
+    const topColorSelect = document.getElementById('topColorSelect');
 
     let moveHistory = [];
 
-    // The initial chess setup (using Unicode symbols as reference)
+    // Initial board setup using plain text letters:
+    // Uppercase for bottom (white side), lowercase for top (black side).
     const initialSetup = [
-      ["♜","♞","♝","♛","♚","♝","♞","♜"],
-      ["♟","♟","♟","♟","♟","♟","♟","♟"],
+      ["r","n","b","q","k","b","n","r"],
+      ["p","p","p","p","p","p","p","p"],
       ["","","","","","","",""],
       ["","","","","","","",""],
       ["","","","","","","",""],
       ["","","","","","","",""],
-      ["♙","♙","♙","♙","♙","♙","♙","♙"],
-      ["♖","♘","♗","♕","♔","♗","♘","♖"]
+      ["P","P","P","P","P","P","P","P"],
+      ["R","N","B","Q","K","B","N","R"]
     ];
 
-    // Mapping for default (light/dark) pieces
-    const defaultPieceImages = {
-      "♙": "Chess_plt45.svg",
-      "♖": "Chess_rlt45.svg",
-      "♘": "Chess_nlt45.svg",
-      "♗": "Chess_blt45.svg",
-      "♕": "Chess_qlt45.svg",
-      "♔": "Chess_klt45.svg",
-      "♟": "Chess_pdt45.svg",
-      "♜": "Chess_rdt45.svg",
-      "♞": "Chess_ndt45.svg",
-      "♝": "Chess_bdt45.svg",
-      "♛": "Chess_qdt45.svg",
-      "♚": "Chess_kdt45.svg"
+    // Define mappings for each color.
+    const colorMappings = {
+      white: {
+        "P": "Chess_plt45.svg",
+        "R": "Chess_rlt45.svg",
+        "N": "Chess_nlt45.svg",
+        "B": "Chess_blt45.svg",
+        "Q": "Chess_qlt45.svg",
+        "K": "Chess_klt45.svg"
+      },
+      black: {
+        "p": "Chess_pdt45.svg",
+        "r": "Chess_rdt45.svg",
+        "n": "Chess_ndt45.svg",
+        "b": "Chess_bdt45.svg",
+        "q": "Chess_qdt45.svg",
+        "k": "Chess_kdt45.svg"
+      },
+      blue: {
+        "P": "Chess_pbt45.svg",
+        "R": "Chess_rbt45.svg",
+        "N": "Chess_nbt45.svg",
+        "B": "Chess_bbt45.svg",
+        "Q": "Chess_qbt45.svg",
+        "K": "Chess_kbt45.svg"
+      },
+      red: {
+        "p": "Chess_prt45.svg",
+        "r": "Chess_rrt45.svg",
+        "n": "Chess_nrt45.svg",
+        "b": "Chess_brt45.svg",
+        "q": "Chess_qrt45.svg",
+        "k": "Chess_krt45.svg"
+      },
+      yellow: {
+        "P": "Chess_pyt45.svg",
+        "R": "Chess_ryt45.svg",
+        "N": "Chess_nyt45.svg",
+        "B": "Chess_byt45.svg",
+        "Q": "Chess_qyt45.svg",
+        "K": "Chess_kyt45.svg"
+      },
+      green: {
+        "p": "Chess_pgt45.svg",
+        "r": "Chess_rgt45.svg",
+        "n": "Chess_ngt45.svg",
+        "b": "Chess_bgt45.svg",
+        "q": "Chess_qgt45.svg",
+        "k": "Chess_kgt45.svg"
+      }
     };
 
-    // Mapping for red/blue pieces (blue = first, red = second)
-    const redBluePieceImages = {
-      // Blue pieces (first color, like white)
-      "♙": "Chess_pbt45.svg",
-      "♖": "Chess_rbt45.svg",
-      "♘": "Chess_nbt45.svg",
-      "♗": "Chess_bbt45.svg",
-      "♕": "Chess_qbt45.svg",
-      "♔": "Chess_kbt45.svg",
-      // Red pieces (second color, like black)
-      "♟": "Chess_prt45.svg",
-      "♜": "Chess_rrt45.svg",
-      "♞": "Chess_nrt45.svg",
-      "♝": "Chess_brt45.svg",
-      "♛": "Chess_qrt45.svg",
-      "♚": "Chess_krt45.svg"
-    };
-
-    // Return the correct mapping based on toggle
-    function getPieceMapping() {
-      return pieceSetToggle.checked ? redBluePieceImages : defaultPieceImages;
+    // Helper functions to get the current mappings for bottom and top.
+    function getBottomMapping() {
+      const color = bottomColorSelect.value;
+      return colorMappings[color];
+    }
+    function getTopMapping() {
+      const color = topColorSelect.value;
+      return colorMappings[color];
     }
 
     // Initialize (or reinitialize) the board.
     function resetBoard() {
-      // Clear move history
+      // Clear move history.
       moveHistory = [];
-      // Remove all board squares
+      // Remove all board squares.
       boardElement.innerHTML = '';
-      // Create 8x8 board squares
+      // Create 8x8 board squares.
       for (let row = 0; row < 8; row++) {
         for (let col = 0; col < 8; col++) {
           const square = document.createElement('div');
@@ -143,7 +184,7 @@
           square.dataset.row = row;
           square.dataset.col = col;
 
-          // Enable drop functionality
+          // Enable drop functionality.
           square.addEventListener('dragover', (e) => {
             e.preventDefault();
           });
@@ -168,13 +209,12 @@
               captured: capturedPiece
             });
           });
-
           boardElement.appendChild(square);
         }
       }
-      // Place pieces using current mapping
-      const pieceMapping = getPieceMapping();
-      // Loop over each square to add the initial pieces.
+      // Place pieces using the current mappings.
+      const bottomMapping = getBottomMapping();
+      const topMapping = getTopMapping();
       const squares = boardElement.querySelectorAll('.square');
       squares.forEach(square => {
         const row = square.dataset.row;
@@ -183,7 +223,12 @@
         if (pieceChar) {
           const piece = document.createElement('img');
           piece.classList.add('piece');
-          piece.src = "images/" + pieceMapping[pieceChar];
+          // Use bottom mapping for uppercase pieces, top mapping for lowercase.
+          if (pieceChar === pieceChar.toUpperCase()) {
+            piece.src = "images/" + bottomMapping[pieceChar];
+          } else {
+            piece.src = "images/" + topMapping[pieceChar];
+          }
           piece.alt = pieceChar;
           piece.id = 'piece-' + row + '-' + col;
           piece.setAttribute('draggable', true);
@@ -195,7 +240,7 @@
       });
     }
 
-    // Update board flip based on toggle.
+    // Update board flip.
     function updateBoardFlip() {
       if (flipBoardToggle.checked) {
         boardElement.classList.add('flipped');
@@ -204,8 +249,10 @@
       }
     }
 
-    // Set up event listeners for toggles.
-    pieceSetToggle.addEventListener('change', resetBoard);
+    // Event listeners for dropdown changes.
+    bottomColorSelect.addEventListener('change', resetBoard);
+    topColorSelect.addEventListener('change', resetBoard);
+    // Set up flip board toggle.
     flipBoardToggle.addEventListener('change', updateBoardFlip);
 
     // Take Back button functionality.
